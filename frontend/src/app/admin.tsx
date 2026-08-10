@@ -14,37 +14,37 @@ const ACTIVE_COLOR = "#000352";
 const INACTIVE_COLOR = "#9B9DB8";
 
 type NavItem = {
-  label: string;
-  path: string;
-  Icon: React.ComponentType<{ width: number; height: number; fill: string }>;
+    label: string;
+    path: string;
+    Icon: React.ComponentType<{ width: number; height: number; fill: string }>;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Map", path: "/", Icon: MapIcon },
-  { label: "Settings", path: "/settings", Icon: SettingsIcon },
-  { label: "Admin", path: "/admin", Icon: AdminIcon },
+    { label: "Map", path: "/", Icon: MapIcon },
+    { label: "Settings", path: "/settings", Icon: SettingsIcon },
+    { label: "Admin", path: "/admin", Icon: AdminIcon },
 ];
 
 function NavButton({ item, isActive, onPress }: { item: NavItem; isActive: boolean; onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current;
+    const scale = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.88,
-      useNativeDriver: true,
-      speed: 40,
-      bounciness: 6,
-    }).start();
-  };
+    const handlePressIn = () => {
+        Animated.spring(scale, {
+            toValue: 0.88,
+            useNativeDriver: true,
+            speed: 40,
+            bounciness: 6,
+        }).start();
+    };
 
-  const handlePressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 40,
-      bounciness: 6,
-    }).start();
-  };
+    const handlePressOut = () => {
+        Animated.spring(scale, {
+            toValue: 1,
+            useNativeDriver: true,
+            speed: 40,
+            bounciness: 6,
+        }).start();
+    };
 
   const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
 

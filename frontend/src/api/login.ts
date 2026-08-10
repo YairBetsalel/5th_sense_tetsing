@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, setToken, loadToken } from "./client";
 
 /*
 
@@ -48,12 +48,13 @@ export type RequestLogin = {
 export async function request_Login(
     payload: RequestLogin
 ): Promise<LoginSuccess> {
-    const response = await request<ResponseLogin>("api/users/login/", {
+    const response = await request<ResponseLogin>("/api/users/login/", {
         method: "POST",
         body: JSON.stringify(payload)
     });
 
     if ("token" in response) {
+        setToken(response.token);
         return response;
     }
 

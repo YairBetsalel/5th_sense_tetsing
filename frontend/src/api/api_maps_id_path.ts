@@ -132,3 +132,28 @@ Vary: Accept
 
 
 */
+
+import { request } from "./client";
+
+type GridCoord = [number, number];
+type GridData = GridCoord[];
+
+type ResponseMapsIdPath = {
+    "map_id":      number;
+    "start":        number[];
+    "end":          number[];
+    "path":         GridData;
+    "total_steps":  number;
+}
+
+export async function request_MapsIdPath(
+    index: number,
+    start_x: number,
+    start_y: number,
+    end_x: number,
+    end_y: number
+): Promise<ResponseMapsIdPath> {
+    return request<ResponseMapsIdPath>(`/api/maps/${index}/path/?start_x=${start_x}&start_y=${start_y}&end_x=${end_x}&end_y=${end_y}`, {
+        method: "GET"
+    });
+}

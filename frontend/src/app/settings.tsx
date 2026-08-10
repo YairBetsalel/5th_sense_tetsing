@@ -124,7 +124,7 @@ export default function SettingsPage() {
                 </Pressable>
 
                 <Pressable style={settingsStyles.redButton} onPress={() => requestMap2ndPath()}>
-                    <Text style={settingsStyles.buttonText}>/api/maps/2/path?start_x=0&start_y=0&end_x=7&end_y=7</Text>
+                    <Text style={settingsStyles.buttonText}>/api/maps/2/path/ from (0,0) to (7,7)</Text>
                 </Pressable>
             </View>
 

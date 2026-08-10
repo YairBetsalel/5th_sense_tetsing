@@ -62,15 +62,31 @@ class MapPathfindingView(APIView):
         }, status=status.HTTP_200_OK)
 
 class DestinationsListCreateView(generics.ListCreateAPIView):
-    # List destinations
+    # List or create destinations
     serializer_class = DestinationsSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]
+
+    def get_permissions(self):
+        # Any user may see the destinations but only admin may create one
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsSuperAdminOrMapOwner()]
 
     def get_queryset(self):
         user = self.request.user
-        if user.user_role == 'superadmin':
-            return DestinationsSerializer.objects.all()
-        return Destinations.objects.filter(created_by=user)
+        # View destinations
+        if user.is_authenticated and getattr(user, 'user_role', None) == 'superadmin':
+            return Destinations.objects.all()
 
+        if user.is_authenticated:
+            return Destinations.objects.filter(created_by=user)
+        return Destinations.objects.all()
+
+    # Create destinations
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+class DestinationsDetailView(generics.RetrieveUpdateDestroyAPIView):
+    # Edit or delete a destination
+    queryset = Destinations.objects.all()
+    serializer_class = DestinationsSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]

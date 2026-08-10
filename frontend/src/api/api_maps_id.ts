@@ -1,6 +1,7 @@
 import { request } from "./client";
 
-type GridData = [number, number][];
+type GridCoord = [number, number];
+type GridData = GridCoord[];
 
 type ResponseMapsId = {
     "id":           number;
@@ -17,7 +18,6 @@ export async function request_MapsId(
     index: number
 ): Promise<ResponseMapsId> {
     return request<ResponseMapsId>(`/api/maps/${index}/`, {
-        method: "GET",
-        body: ""
+        method: "GET"
     });
 }

@@ -81,7 +81,5 @@ export async function request<T>(
         );
     }
 
-    console.log(res);
-
     return (await res.json()) as T;
 }

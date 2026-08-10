@@ -15,6 +15,7 @@ import { request } from '@/api/client';
 
 // API
 import { request_MapsId } from '@/api/api_maps_id';
+import { request_MapsIdPath } from '@/api/api_maps_id_path';
 
 type VibrationStrength = "light" | "medium" | "heavy" | "soft" | "rigid" | "success" | "warning" | "error";
 
@@ -67,9 +68,18 @@ export default function SettingsPage() {
     );
 
     const requestMap2nd = async () => {
-        const response = request_MapsId(2);
+        const response = await request_MapsId(2);
         console.log(response);
-    }
+    };
+
+    const requestMap2ndPath = async () => {
+        const response = await request_MapsIdPath(
+            2,          // Map Index
+            0, 0,       // Start X, Y
+            7, 7        // End X, Y
+        );
+        console.log(response);
+    };
 
     return (
         <View style={commonStyles.screen}>
@@ -111,6 +121,10 @@ export default function SettingsPage() {
 
                 <Pressable style={settingsStyles.redButton} onPress={() => requestMap2nd()}>
                     <Text style={settingsStyles.buttonText}>/api/maps/2</Text>
+                </Pressable>
+
+                <Pressable style={settingsStyles.redButton} onPress={() => requestMap2ndPath()}>
+                    <Text style={settingsStyles.buttonText}>/api/maps/2/path?start_x=0&start_y=0&end_x=7&end_y=7</Text>
                 </Pressable>
             </View>
 

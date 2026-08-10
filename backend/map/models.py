@@ -29,7 +29,7 @@ class Destinations(models.Model):
     name = models.CharField(max_length=255)
     coordinates = models.JSONField(default=dict, blank=False)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='maps')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='destinations')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

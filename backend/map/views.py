@@ -4,8 +4,8 @@ from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework import status,generics
 from django.shortcuts import get_object_or_404
 from .utils import find_shortest_path
-from .models import Map
-from .serializers import MapSerializer
+from .models import Map, Destinations
+from .serializers import MapSerializer, DestinationsSerializer
 from .permissions import IsSuperAdminOrMapOwner
 
 class MapListCreateView(generics.ListCreateAPIView):
@@ -60,3 +60,33 @@ class MapPathfindingView(APIView):
             'path': result,
             'total_steps': len(result) - 1,
         }, status=status.HTTP_200_OK)
+
+class DestinationsListCreateView(generics.ListCreateAPIView):
+    # List or create destinations
+    serializer_class = DestinationsSerializer
+
+    def get_permissions(self):
+        # Any user may see the destinations but only admin may create one
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsSuperAdminOrMapOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        # View destinations
+        if user.is_authenticated and getattr(user, 'user_role', None) == 'superadmin':
+            return Destinations.objects.all()
+
+        if user.is_authenticated:
+            return Destinations.objects.filter(created_by=user)
+        return Destinations.objects.all()
+
+    # Create destinations
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+class DestinationsDetailView(generics.RetrieveUpdateDestroyAPIView):
+    # Edit or delete a destination
+    queryset = Destinations.objects.all()
+    serializer_class = DestinationsSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]

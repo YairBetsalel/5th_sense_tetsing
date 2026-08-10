@@ -1,33 +1,90 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { View, Text, Animated, Easing } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useFonts } from "expo-font";
+import { Magnetometer } from 'expo-sensors';
 
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
 
-import NavigationBar from "@/components/NavigationBar";
+import { useFocusEffect } from "expo-router";
+import { vibrate, type VibrationStrength } from '@/vibration/haptics';
+import { settingsStyles } from '@/styles/settingsStyles';
+
+// UI Components
+import NavigationBar from '@/components/NavigationBar';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function MapPage() {
   const rotation = useRef(new Animated.Value(0)).current;
+  const vibrationRunId = useRef(0);
+  const isNorthRef = useRef(false);
+
+  const stopVibration = useCallback(() => {
+    vibrationRunId.current += 1;
+  }, []);
+
+  // Loop vibration until the user stops it
+  const loopVibration = useCallback(
+    async (strength: VibrationStrength) => {
+      stopVibration();
+
+      const currentRunId = vibrationRunId.current;
+
+      try {
+        while (vibrationRunId.current === currentRunId) {
+          await vibrate(strength);
+
+          if (vibrationRunId.current !== currentRunId) {
+            break;
+          }
+
+          await sleep(50);
+        }
+      } catch (error) {
+        console.error("Vibration failed:", error);
+        stopVibration();
+      }
+    },
+    [stopVibration],
+  );
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const randomAngle = Math.random() * 180 - 90;
+    Magnetometer.setUpdateInterval(100);
+
+    const subscription = Magnetometer.addListener((data) => {
+      let { x, y } = data;
+      let heading = Math.atan2(y, x) * (180 / Math.PI);
+      heading = heading >= 0 ? heading : heading + 360;
+
+      const isNorth = heading <= 20 || heading >= 340;
+
+      if (isNorth && !isNorthRef.current) {
+        isNorthRef.current = true;
+        loopVibration('error');
+      } else if (!isNorth && isNorthRef.current) {
+        isNorthRef.current = false;
+        stopVibration();
+      }
+
       Animated.timing(rotation, {
-        toValue: randomAngle,
-        duration: 800,
-        easing: Easing.inOut(Easing.ease),
+        toValue: -heading,
+        duration: 100,
+        easing: Easing.linear,
         useNativeDriver: true,
       }).start();
-    }, 2000);
+    });
 
-    return () => clearInterval(interval);
-  }, [rotation]);
+    return () => {
+      subscription.remove();
+      stopVibration();
+    };
+  }, [rotation, loopVibration, stopVibration]);
 
   const rotateInterpolate = rotation.interpolate({
-    inputRange: [-90, 90],
-    outputRange: ["-90deg", "90deg"],
+    inputRange: [-360, 0, 360],
+    outputRange: ["-360deg", "0deg", "360deg"],
   });
 
   return (

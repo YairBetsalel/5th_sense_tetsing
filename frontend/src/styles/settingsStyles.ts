@@ -1,60 +1,81 @@
-import { StyleSheet} from "react-native";
+import { StyleSheet } from "react-native";
 
 export const settingsStyles = StyleSheet.create({
     sectionFrame: {
-        backgroundColor: "transparent",
-        padding: 10,
-        minHeight: "30%",
+        width: "100%",
+        minHeight: 180,
+        padding: 20,
+        gap: 16,
+
+        backgroundColor: "rgba(255, 255, 255, 0.06)",
         borderWidth: 1,
-        borderColor: "#ffffff",
-        borderRadius: 25,
+        borderColor: "rgba(255, 255, 255, 0.18)",
+        borderRadius: 20,
     },
 
     sectionTitle: {
-        textAlign: "left",
-        fontSize: 32,
-        fontWeight: "bold",
+        color: "#FFFFFF",
+        fontSize: 26,
+        fontWeight: "700",
         fontFamily: "InstrumentSans-Regular",
-        color: "#ffffff",
+        textAlign: "left",
+    },
+
+    buttonContainer: {
+        gap: 12,
+    },
+
+    button: {
+        minHeight: 48,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+
+        borderWidth: 1,
+        borderRadius: 12,
+
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    buttonText: {
+        fontSize: 16,
+        fontWeight: "600",
+        fontFamily: "InstrumentSans-Regular",
     },
 
     redButton: {
-        color: "#ff0000",
-        padding: 10,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderColor: "#ff0000",
-        borderWidth: 1,
+        backgroundColor: "rgba(239, 68, 68, 0.15)",
+        borderColor: "#EF4444",
+    },
+
+    redButtonText: {
+        color: "#F87171",
     },
 
     blueButton: {
-        color: "#0000ff",
-        padding: 10,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderColor: "#0000ff",
-        borderWidth: 1,
+        backgroundColor: "rgba(59, 130, 246, 0.15)",
+        borderColor: "#3B82F6",
+    },
+
+    blueButtonText: {
+        color: "#60A5FA",
     },
 
     yellowButton: {
-        color: "#ffff00",
-        padding: 10,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderColor: "#ffff00",
-        borderWidth: 1,
+        backgroundColor: "rgba(234, 179, 8, 0.15)",
+        borderColor: "#EAB308",
+    },
+
+    yellowButtonText: {
+        color: "#FACC15",
     },
 
     greenButton: {
-        color: "#00ff00",
-        padding: 10,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderColor: "#00ff00",
-        borderWidth: 1,
+        backgroundColor: "rgba(34, 197, 94, 0.15)",
+        borderColor: "#22C55E",
+    },
+
+    greenButtonText: {
+        color: "#4ADE80",
     },
 });

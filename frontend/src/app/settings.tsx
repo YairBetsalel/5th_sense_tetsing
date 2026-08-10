@@ -11,6 +11,10 @@ import { settingsStyles } from '@/styles/settingsStyles';
 
 // UI Components
 import NavigationBar from '@/components/NavigationBar';
+import { request } from '@/api/client';
+
+// API
+import { request_MapsId } from '@/api/api_maps_id';
 
 type VibrationStrength = "light" | "medium" | "heavy" | "soft" | "rigid" | "success" | "warning" | "error";
 
@@ -62,6 +66,11 @@ export default function SettingsPage() {
         }, [stopVibration]),
     );
 
+    const requestMap2nd = async () => {
+        const response = request_MapsId(2);
+        console.log(response);
+    }
+
     return (
         <View style={commonStyles.screen}>
 
@@ -69,31 +78,39 @@ export default function SettingsPage() {
                 <Text style={settingsStyles.sectionTitle}>Haptics Test</Text>
 
                 <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('light')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Light</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Light</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('medium')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Medium</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Medium</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('heavy')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Heavy</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Heavy</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('soft')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Soft</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Soft</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('rigid')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Rigid</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Rigid</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.greenButton} onPress={() => loopVibration('success')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Success</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Success</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.yellowButton} onPress={() => loopVibration('warning')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Warning</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Warning</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.redButton} onPress={() => loopVibration('error')}>
-                    <Text style={settingsStyles.sectionTitle}>Vibrate: Error</Text>
+                    <Text style={settingsStyles.buttonText}>Vibrate: Error</Text>
                 </Pressable>
                 <Pressable style={settingsStyles.redButton} onPress={() => stopVibration()}>
-                    <Text style={settingsStyles.sectionTitle}>Stop Vibration</Text>
+                    <Text style={settingsStyles.buttonText}>Stop Vibration</Text>
+                </Pressable>
+            </View>
+
+            <View style={settingsStyles.sectionFrame}>
+                <Text style={settingsStyles.sectionTitle}>Debug: API</Text>
+
+                <Pressable style={settingsStyles.redButton} onPress={() => requestMap2nd()}>
+                    <Text style={settingsStyles.buttonText}>/api/maps/2</Text>
                 </Pressable>
             </View>
 

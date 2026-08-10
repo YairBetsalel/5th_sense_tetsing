@@ -1,81 +1,87 @@
+import * as SecureStore from "expo-secure-store";
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+const TOKEN_KEY = "access_token";
+
 let token: string | null = null;
 
-if (!API_BASE_URL) {
-    throw new Error("API Base URL is not defined");
+export async function loadToken(): Promise<string | null> {
+    token = await SecureStore.getItemAsync(TOKEN_KEY);
+    return token;
 }
 
-// API Request Handler
-
-// export function parseCookieValue(
-//     setCookieHeader: string | null,
-//     key: string
-// ): string | null {
-//     if (!setCookieHeader) return null;
-
-//     const match = setCookieHeader.match(
-//         new RegExp(`${key}=([^;]+)`)
-//     );
-
-//     return match ? decodeURIComponent(match[1]) : null;
-// }
-
-// export async function bypassCSRF(): Promise<string> {
-//     const endpoint_uri = `${API_BASE_URL}/404_CSRF_BYPASS`;
-    
-//     const res = await fetch(endpoint_uri, {
-//         headers: {
-//             "Content-Type": "application/json"
-//         }
-//     });
-
-//     if (res.status != 404) {
-//         throw new Error(`WARNING: API must return 404 status: ${res.status}`);
-//     }
-
-//     const setCookie = res.headers.get("set-cookie");
-//     const csrf_token = parseCookieValue(setCookie, "csrftoken") as string;
-
-//     if (csrf_token == null) {
-//         throw new Error(`CSRF token not found.`);
-//     }
-
-//     return csrf_token
-// }
-
-export function setToken(newToken: string | null): void {
+export async function setToken(
+    newToken: string | null
+): Promise<void> {
     token = newToken;
+
+    if (newToken) {
+        await SecureStore.setItemAsync(TOKEN_KEY, newToken);
+    } else {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+    }
 }
 
 export function getToken(): string | null {
     return token;
 }
 
-export function clearToken(): void {
+export async function clearToken(): Promise<void> {
     token = null;
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
 export async function request<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const endpoint_uri = `${API_BASE_URL}${endpoint}`;
-    // const csrf_token = await bypassCSRF();
+    if (!API_BASE_URL) {
+        throw new Error("EXPO_PUBLIC_API_BASE_URL is not defined");
+    }
 
-    const res = await fetch(endpoint_uri, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            // "X-CSRFToken": csrf_token,
-            ...(options.headers || {}),
-        },
+    const endpointUri = `${API_BASE_URL}${endpoint}`;
+
+    if (!token) {
+        token = await SecureStore.getItemAsync(TOKEN_KEY);
+    }
+
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string> | undefined),
+    };
+
+    if (token) {
+        headers["Authorization"] = `Token ${token}`;
+    }
+
+    console.log("REQUEST:", {
+        url: endpointUri,
+        method: options.method ?? "GET",
+        headers,
+        body: options.body,
+    });
+
+    const res = await fetch(endpointUri, {
         ...options,
+        headers,
     });
 
     if (!res.ok) {
-        throw new Error(`API request failed: ${res.status}`);
+        const errorBody = await res.text();
+
+        console.error("API ERROR:", {
+            status: res.status,
+            url: endpointUri,
+            body: errorBody,
+        });
+
+        throw new Error(
+            `API request failed: ${res.status} ${errorBody}`
+        );
     }
 
-    const result = res.json() as Promise<T>;
-    return result;
+    console.log(res);
+
+    return (await res.json()) as T;
 }

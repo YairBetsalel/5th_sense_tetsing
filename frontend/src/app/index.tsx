@@ -6,10 +6,8 @@ import { Magnetometer } from 'expo-sensors';
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
 
-import { useFocusEffect } from "expo-router";
 import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 
-// UI Components
 import NavigationBar from '@/components/NavigationBar';
 
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
@@ -20,20 +18,57 @@ const GRID_WIDTH = 8;
 const GRID_HEIGHT = 8;
 const JOYSTICK_RADIUS = 40;
 const MAX_SPEED = 0.05;
+const ARRIVAL_THRESHOLD = 0.5;
+const HEADING_CONE_DEGREES = 15;
+const MINIMAP_SIZE = 150;
+
+const MAP_ID = 2;
+const START = { x: 0, y: 0 };
+const END = { x: 7, y: 7 };
+
+const normalizeAngle = (deg: number) => {
+  const wrapped = deg % 360;
+  return wrapped < 0 ? wrapped + 360 : wrapped;
+};
+
+const shortestAngleDelta = (from: number, to: number) => {
+  const diff = normalizeAngle(to - from);
+  return diff > 180 ? diff - 360 : diff;
+};
+
+const angularDistance = (a: number, b: number) => Math.abs(shortestAngleDelta(a, b));
 
 export default function MapPage() {
   const rotation = useRef(new Animated.Value(0)).current;
+  const rotationValueRef = useRef(0);
+
+  const mapRotation = useRef(new Animated.Value(0)).current;
+  const mapRotationValueRef = useRef(0);
+
   const joystickPan = useRef(new Animated.ValueXY()).current;
+  const mapCursorPan = useRef(new Animated.ValueXY()).current;
 
   const vibrationRunId = useRef(0);
-  const isNorthRef = useRef(false);
+  const isCorrectRef = useRef(false);
 
-  // Virtual position state
   const virtualPos = useRef({ x: 0, y: 0 });
   const joystickVelocity = useRef({ dx: 0, dy: 0 });
+  const currentHeadingRef = useRef(0);
 
-  const [safePath, setSafePath] = useState<[number, number][]>([]);
-  const [targetIndex, setTargetIndex] = useState(0);
+  const safePathRef = useRef<[number, number][]>([]);
+  const targetIndexRef = useRef(0);
+
+  const [safePath, setSafePathState] = useState<[number, number][]>([]);
+
+  const applySafePath = useCallback((path: [number, number][]) => {
+    if (!path || path.length === 0) {
+      console.warn("[MapPage] Attempted to apply an empty or invalid safePath:", path);
+      return;
+    }
+    safePathRef.current = path;
+    targetIndexRef.current = 0;
+    setSafePathState(path);
+  }, []);
 
   const stopVibration = useCallback(() => {
     vibrationRunId.current += 1;
@@ -50,7 +85,7 @@ export default function MapPage() {
           await sleep(50);
         }
       } catch (error) {
-        console.error("Vibration failed:", error);
+        console.error("[MapPage] Vibration execution failed:", error);
         stopVibration();
       }
     },
@@ -58,24 +93,45 @@ export default function MapPage() {
   );
 
   useEffect(() => {
+    let cancelled = false;
     const fetchPath = async () => {
       try {
-        const response = await request_MapsIdPath(2, 0, 0, 7, 7);
-        if (response && response.path) {
-          setSafePath(response.path);
+        const response = await request_MapsIdPath(MAP_ID, START.x, START.y, END.x, END.y);
+        if (!response) {
+          console.error("[MapPage] API returned an empty response for request_MapsIdPath.");
+          return;
+        }
+        if (!response.path || response.path.length === 0) {
+          console.error("[MapPage] API response missing valid 'path' array:", response);
+          return;
+        }
+
+        if (!cancelled) {
+          applySafePath(response.path);
         }
       } catch (err) {
-        console.error("Failed to fetch path:", err);
+        console.error("[MapPage] Failed to fetch path from API:", err);
       }
     };
     fetchPath();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [applySafePath]);
+
+  useEffect(() => {
+    if (safePath.length > 0 && (safePath[0][0] !== START.x || safePath[0][1] !== START.y)) {
+      console.warn(
+        "[MapPage] safePath did not start at the user's spawn position, prepending START:",
+        safePath[0],
+      );
+    }
+  }, [safePath]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (e, gestureState) => {
-
+      onPanResponderMove: (_e, gestureState) => {
         const distance = Math.sqrt(gestureState.dx ** 2 + gestureState.dy ** 2);
         const scale = distance > JOYSTICK_RADIUS ? JOYSTICK_RADIUS / distance : 1;
 
@@ -96,6 +152,14 @@ export default function MapPage() {
         }).start();
         joystickVelocity.current = { dx: 0, dy: 0 };
       },
+      onPanResponderTerminate: () => {
+        console.warn("[MapPage] PanResponder gesture terminated by system.");
+        Animated.spring(joystickPan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: false,
+        }).start();
+        joystickVelocity.current = { dx: 0, dy: 0 };
+      },
     })
   ).current;
 
@@ -103,91 +167,201 @@ export default function MapPage() {
     let animationFrameId: number;
 
     const updatePosition = () => {
-      if (joystickVelocity.current.dx !== 0 || joystickVelocity.current.dy !== 0) {
-        virtualPos.current.x += joystickVelocity.current.dx * MAX_SPEED;
-        virtualPos.current.y += joystickVelocity.current.dy * MAX_SPEED;
+      try {
+        const { dx, dy } = joystickVelocity.current;
 
+        if (dx !== 0 || dy !== 0) {
+          let { x, y } = virtualPos.current;
 
-        if (virtualPos.current.x < 0) virtualPos.current.x += GRID_WIDTH;
-        if (virtualPos.current.x >= GRID_WIDTH) virtualPos.current.x -= GRID_WIDTH;
-        if (virtualPos.current.y < 0) virtualPos.current.y += GRID_HEIGHT;
-        if (virtualPos.current.y >= GRID_HEIGHT) virtualPos.current.y -= GRID_HEIGHT;
+          const theta = currentHeadingRef.current * (Math.PI / 180);
+          const vx = dx * Math.cos(theta) - dy * Math.sin(theta);
+          const vy = dx * Math.sin(theta) + dy * Math.cos(theta);
 
-        if (safePath.length > 0 && targetIndex < safePath.length) {
-          const target = safePath[targetIndex];
-          const distToTarget = Math.sqrt(
-            (target[0] - virtualPos.current.x) ** 2 +
-            (target[1] - virtualPos.current.y) ** 2
-          );
-          if (distToTarget < 0.5 && targetIndex < safePath.length - 1) {
-            setTargetIndex(prev => prev + 1);
+          x += vx * MAX_SPEED;
+          y += vy * MAX_SPEED;
+
+          x = ((x % GRID_WIDTH) + GRID_WIDTH) % GRID_WIDTH;
+          y = ((y % GRID_HEIGHT) + GRID_HEIGHT) % GRID_HEIGHT;
+
+          virtualPos.current = { x, y };
+          mapCursorPan.setValue({ x, y });
+
+          const path = safePathRef.current;
+          const idx = targetIndexRef.current;
+          if (path.length > 0 && idx < path.length) {
+            const target = path[idx];
+            if (!target || target.length < 2) {
+              console.error(`[MapPage] Invalid target coordinate at index ${idx}:`, target);
+              return;
+            }
+            const [tx, ty] = target;
+            const distToTarget = Math.hypot(tx - x, ty - y);
+            if (distToTarget < ARRIVAL_THRESHOLD && idx < path.length - 1) {
+              targetIndexRef.current = idx + 1;
+            }
           }
         }
+      } catch (err) {
+        console.error("[MapPage] Error in virtual movement loop:", err);
       }
+
       animationFrameId = requestAnimationFrame(updatePosition);
     };
 
-    updatePosition();
+    animationFrameId = requestAnimationFrame(updatePosition);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [safePath, targetIndex]);
+  }, [mapCursorPan]);
 
   useEffect(() => {
-    Magnetometer.setUpdateInterval(100);
+    let subscription: { remove: () => void } | null = null;
 
-    const subscription = Magnetometer.addListener((data) => {
-      let { x, y } = data;
-      let heading = Math.atan2(y, x) * (180 / Math.PI);
-      heading = heading >= 0 ? heading : heading + 360;
+    try {
+      Magnetometer.setUpdateInterval(100);
 
-      const isNorth = heading <= 20 || heading >= 340;
+      subscription = Magnetometer.addListener(({ x, y }) => {
+        if (typeof x !== 'number' || typeof y !== 'number') {
+          console.error("[MapPage] Magnetometer returned invalid sensor data:", { x, y });
+          return;
+        }
 
-      if (isNorth && !isNorthRef.current) {
-        isNorthRef.current = true;
-        loopVibration('error');
-      } else if (!isNorth && isNorthRef.current) {
-        isNorthRef.current = false;
-        stopVibration();
-      }
+        const heading = normalizeAngle(Math.atan2(y, x) * (180 / Math.PI));
+        currentHeadingRef.current = heading;
 
+        const path = safePathRef.current;
+        const idx = targetIndexRef.current;
+        const hasActiveTarget = path.length > 0 && idx < path.length;
 
-      let arrowRotationAngle = -heading;
+        let targetAngle = 0;
 
-      if (safePath.length > 0 && targetIndex < safePath.length) {
-        const target = safePath[targetIndex];
-        const dx = target[0] - virtualPos.current.x;
+        if (hasActiveTarget) {
+          const target = path[idx];
+          if (!target || target.length < 2) {
+            console.error(`[MapPage] Invalid path point at target index ${idx}:`, target);
+            return;
+          }
+          const [tx, ty] = target;
+          const dx = tx - virtualPos.current.x;
+          const dy = ty - virtualPos.current.y;
+          targetAngle = normalizeAngle(Math.atan2(dx, -dy) * (180 / Math.PI));
 
-        const dy = target[1] - virtualPos.current.y;
+          const diff = angularDistance(targetAngle, heading);
+          const isPointingCorrectly = diff <= HEADING_CONE_DEGREES;
 
+          if (isPointingCorrectly && !isCorrectRef.current) {
+            isCorrectRef.current = true;
+            loopVibration('success');
+          } else if (!isPointingCorrectly && isCorrectRef.current) {
+            isCorrectRef.current = false;
+            stopVibration();
+          }
+        } else if (isCorrectRef.current) {
+          isCorrectRef.current = false;
+          stopVibration();
+        }
 
-        let bearingToTarget = Math.atan2(dx, -dy) * (180 / Math.PI);
+        const rawRotation = normalizeAngle(targetAngle - heading);
+        const currentMod = normalizeAngle(rotationValueRef.current);
+        const delta = shortestAngleDelta(currentMod, rawRotation);
+        rotationValueRef.current += delta;
 
+        Animated.timing(rotation, {
+          toValue: rotationValueRef.current,
+          duration: 100,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }).start();
 
-        arrowRotationAngle = bearingToTarget - heading;
-      }
+        const rawMapRot = normalizeAngle(-heading);
+        const currentMapMod = normalizeAngle(mapRotationValueRef.current);
+        const mapDelta = shortestAngleDelta(currentMapMod, rawMapRot);
+        mapRotationValueRef.current += mapDelta;
 
-      Animated.timing(rotation, {
-        toValue: arrowRotationAngle,
-        duration: 100,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start();
-    });
+        Animated.timing(mapRotation, {
+          toValue: mapRotationValueRef.current,
+          duration: 100,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }).start();
+      });
+    } catch (err) {
+      console.error("[MapPage] Failed to initialize Magnetometer listener:", err);
+    }
 
     return () => {
-      subscription.remove();
+      if (subscription) {
+        subscription.remove();
+      }
       stopVibration();
     };
-  }, [rotation, loopVibration, stopVibration, safePath, targetIndex]);
+  }, [rotation, mapRotation, loopVibration, stopVibration]);
 
   const rotateInterpolate = rotation.interpolate({
-    inputRange: [-720, -360, 0, 360, 720],
-    outputRange: ["-720deg", "-360deg", "0deg", "360deg", "720deg"],
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
   });
+
+  const mapRotateInterpolate = mapRotation.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const mapCursorX = mapCursorPan.x.interpolate({
+    inputRange: [0, GRID_WIDTH],
+    outputRange: [0, MINIMAP_SIZE],
+  });
+
+  const mapCursorY = mapCursorPan.y.interpolate({
+    inputRange: [0, GRID_HEIGHT],
+    outputRange: [0, MINIMAP_SIZE],
+  });
+
+  const needsAnchor =
+    safePath.length > 0 && (safePath[0][0] !== START.x || safePath[0][1] !== START.y);
+
+  const visualPathPoints: [number, number][] = needsAnchor
+    ? [[START.x, START.y] as [number, number], ...safePath]
+    : safePath;
+
+  const pathData =
+    visualPathPoints.length > 0
+      ? visualPathPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]} ${p[1]}`).join(' ')
+      : undefined;
 
   return (
     <View style={commonStyles.screen}>
       <View style={indexStyles.topFrame}>
-        <View style={[indexStyles.map, { backgroundColor: "transparent" }]}></View>
+        <View style={localStyles.miniMapContainer}>
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              { transform: [{ rotate: mapRotateInterpolate }] }
+            ]}
+          >
+            <Svg
+              width={MINIMAP_SIZE}
+              height={MINIMAP_SIZE}
+              viewBox={`0 0 ${GRID_WIDTH} ${GRID_HEIGHT}`}
+              style={StyleSheet.absoluteFill}
+            >
+              {pathData && (
+                <Path
+                  d={pathData}
+                  stroke="#4CAF50"
+                  strokeWidth={0.3}
+                  fill="none"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+            </Svg>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                localStyles.miniMapCursor,
+                { transform: [{ translateX: mapCursorX }, { translateY: mapCursorY }] },
+              ]}
+            />
+          </Animated.View>
+        </View>
       </View>
 
       <View style={[indexStyles.centerFrame, { justifyContent: "center", alignItems: "center" }]}>
@@ -220,13 +394,12 @@ export default function MapPage() {
           </Svg>
         </Animated.View>
 
-        {/* Virtual Joystick */}
         <View style={localStyles.joystickBase}>
           <Animated.View
             {...panResponder.panHandlers}
             style={[
               localStyles.joystickStick,
-              { transform: joystickPan.getTranslateTransform() }
+              { transform: joystickPan.getTranslateTransform() },
             ]}
           />
         </View>
@@ -260,5 +433,24 @@ const localStyles = StyleSheet.create({
     height: JOYSTICK_RADIUS,
     borderRadius: JOYSTICK_RADIUS / 2,
     backgroundColor: 'rgba(0,0,0,0.3)',
-  }
+  },
+  miniMapContainer: {
+    width: MINIMAP_SIZE,
+    height: MINIMAP_SIZE,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: MINIMAP_SIZE / 2, // Circular to look like GTA/Mario
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  miniMapCursor: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
 });

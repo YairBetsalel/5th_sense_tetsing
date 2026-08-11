@@ -3,7 +3,9 @@ import { StyleSheet } from "react-native";
 export const commonStyles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: "#c1dfdf"
+        backgroundColor: "#c1dfdf",
+        paddingTop: 50,
+        paddingBottom: 50,
     },
 
     menuFrame: {

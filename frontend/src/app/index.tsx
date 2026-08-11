@@ -429,7 +429,7 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: 60,
+    bottom: 100,
   },
   joystickStick: {
     width: JOYSTICK_RADIUS,
@@ -462,7 +462,7 @@ const localStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#fbe3e8',
     borderWidth: 1.5,
     borderColor: '#5cbdb9',
     shadowColor: "#5cbdb9",

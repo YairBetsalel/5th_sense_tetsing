@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 
 export const indexStyles = StyleSheet.create({
     topFrame: {
-        paddingTop: 60,
+        paddingTop: 10,
         paddingHorizontal: 24,
         flexDirection: "row",
         justifyContent: "space-between",
@@ -50,6 +50,5 @@ export const indexStyles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        paddingBottom: 140,
     },
 });

@@ -51,6 +51,7 @@ class MapPathfindingView(APIView):
         # Find the shortest path
         result = find_shortest_path(map_instance.grid_data, start_coordinate, end_coordinate)
 
+        # Catch any errors or return the result
         if isinstance(result, dict) and "error" in result:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
         return Response({
@@ -72,18 +73,29 @@ class DestinationsListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsSuperAdminOrMapOwner()]
 
     def get_queryset(self):
+        # Search the destinations based on the map id given
+        queryset = Destinations.objects.all()
+        map_id = self.request.query_params.get('map_id')
+        if map_id:
+            return queryset.filter(map_id=map_id)
+
         user = self.request.user
-        # View destinations
         if user.is_authenticated and getattr(user, 'user_role', None) == 'superadmin':
-            return Destinations.objects.all()
+            return queryset
 
         if user.is_authenticated:
-            return Destinations.objects.filter(created_by=user)
-        return Destinations.objects.all()
+            return queryset.filter(created_by=user)
+
+        return queryset
 
     # Create destinations
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        map_id = self.request.data.get('map')
+        if map_id:
+            map_instance = get_object_or_404(Map, pk=map_id)
+            serializer.save(created_by=self.request.user, map=map_instance)
+        else:
+            serializer.save(created_by=self.request.user)
 
 class DestinationsDetailView(generics.RetrieveUpdateDestroyAPIView):
     # Edit or delete a destination

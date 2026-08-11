@@ -26,6 +26,11 @@ class Map(models.Model):
         return self.name
 
 class Destinations(models.Model):
+    map = models.ForeignKey(
+        Map,
+        on_delete=models.CASCADE,
+        related_name='destinations'
+    )
     name = models.CharField(max_length=255)
     coordinates = models.JSONField(default=dict, blank=False)
 

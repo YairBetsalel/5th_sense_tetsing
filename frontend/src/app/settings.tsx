@@ -1,134 +1,30 @@
-import { Pressable, Text, View } from 'react-native';
-import { useCallback, useRef } from "react";
-import { useFocusEffect } from "expo-router";
+import { Pressable, Text, View, ScrollView } from 'react-native';
 
-// iPhone Haptics API
-import { vibrate } from '@/vibration/haptics';
-
-// Styles
 import { commonStyles } from '@/styles/commonStyles';
 import { settingsStyles } from '@/styles/settingsStyles';
-
-// UI Components
 import NavigationBar from '@/components/NavigationBar';
-import { request } from '@/api/client';
 
-// API
 import { request_MapsId } from '@/api/api_maps_id';
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
 
-type VibrationStrength = "light" | "medium" | "heavy" | "soft" | "rigid" | "success" | "warning" | "error";
-
 export default function SettingsPage() {
-    const vibrationRunId = useRef(0);
-
-    // Sleep for a specified number of milliseconds
-    const sleep = (ms: number) =>
-        new Promise<void>((resolve) => {
-            setTimeout(resolve, ms);
-    });
-
-    // Stop the vibration loop
-    const stopVibration = useCallback(() => {
-        vibrationRunId.current += 1;
-    }, []);
-
-    // Loop vibration until the user stops it
-    const loopVibration = useCallback(
-        async (strength: VibrationStrength) => {
-            stopVibration();
-
-            const currentRunId = vibrationRunId.current;
-
-            try {
-                while (vibrationRunId.current === currentRunId) {
-                    await vibrate(strength);
-
-                    if (vibrationRunId.current !== currentRunId) {
-                        break;
-                    }
-
-                    await sleep(50);
-                }
-            } catch (error) {
-                console.error("Vibration failed:", error);
-                stopVibration();
-            }
-        },
-        [stopVibration],
-    );
-
-    useFocusEffect(
-        useCallback(() => {
-        // Execute when lose focus or remove the component from the screen.
-            return () => {
-                stopVibration();
-            };
-        }, [stopVibration]),
-    );
-
-    const requestMap2nd = async () => {
-        const response = await request_MapsId(2);
-        console.log(response);
-    };
-
-    const requestMap2ndPath = async () => {
-        const response = await request_MapsIdPath(
-            2,          // Map Index
-            0, 0,       // Start X, Y
-            7, 7        // End X, Y
-        );
-        console.log(response);
-    };
-
     return (
         <View style={commonStyles.screen}>
+            <ScrollView contentContainerStyle={settingsStyles.scrollContent}>
 
-            <View style={settingsStyles.sectionFrame}>
-                <Text style={settingsStyles.sectionTitle}>Haptics Test</Text>
+                <View style={settingsStyles.sectionFrame}>
+                    <Text style={settingsStyles.sectionTitle}>API Debugging</Text>
+                    <View style={{ gap: 12 }}>
+                        <Pressable style={settingsStyles.button} onPress={() => request_MapsId(2)}>
+                            <Text style={settingsStyles.buttonText}>Fetch Map Data /2</Text>
+                        </Pressable>
+                        <Pressable style={settingsStyles.button} onPress={() => request_MapsIdPath(2, 0, 0, 7, 7)}>
+                            <Text style={settingsStyles.buttonText}>Fetch Path (0,0) to (7,7)</Text>
+                        </Pressable>
+                    </View>
+                </View>
 
-                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('light')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Light</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('medium')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Medium</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('heavy')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Heavy</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('soft')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Soft</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('rigid')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Rigid</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.greenButton} onPress={() => loopVibration('success')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Success</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.yellowButton} onPress={() => loopVibration('warning')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Warning</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.redButton} onPress={() => loopVibration('error')}>
-                    <Text style={settingsStyles.buttonText}>Vibrate: Error</Text>
-                </Pressable>
-                <Pressable style={settingsStyles.redButton} onPress={() => stopVibration()}>
-                    <Text style={settingsStyles.buttonText}>Stop Vibration</Text>
-                </Pressable>
-            </View>
-
-            <View style={settingsStyles.sectionFrame}>
-                <Text style={settingsStyles.sectionTitle}>Debug: API</Text>
-
-                <Pressable style={settingsStyles.redButton} onPress={() => requestMap2nd()}>
-                    <Text style={settingsStyles.buttonText}>/api/maps/2</Text>
-                </Pressable>
-
-                <Pressable style={settingsStyles.redButton} onPress={() => requestMap2ndPath()}>
-                    <Text style={settingsStyles.buttonText}>/api/maps/2/path/ from (0,0) to (7,7)</Text>
-                </Pressable>
-            </View>
-
-            {/* NavigationBar UI component: /components/NavigationBar.tsx */}
+            </ScrollView>
             <NavigationBar />
         </View>
     );

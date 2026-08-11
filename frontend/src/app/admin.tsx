@@ -1,86 +1,13 @@
-import { TextInput, Pressable, StyleSheet, Text, View, Animated } from "react-native";
+import { TextInput, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFonts } from "expo-font";
-import { useRouter, usePathname, RelativePathString } from "expo-router";
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 
-import MapIcon from "@/assets/icons/map.svg";
-import SettingsIcon from "@/assets/icons/settings.svg";
 import AdminIcon from "@/assets/icons/admin.svg";
-
 import { commonStyles } from "@/styles/commonStyles";
+import NavigationBar from "@/components/NavigationBar";
 import { request_Login } from "../api/login";
 
-const ACTIVE_COLOR = "#000352";
-const INACTIVE_COLOR = "#9B9DB8";
-
-type NavItem = {
-    label: string;
-    path: string;
-    Icon: React.ComponentType<{ width: number; height: number; fill: string }>;
-};
-
-const NAV_ITEMS: NavItem[] = [
-    { label: "Map", path: "/", Icon: MapIcon },
-    { label: "Settings", path: "/settings", Icon: SettingsIcon },
-    { label: "Admin", path: "/admin", Icon: AdminIcon },
-];
-
-function NavButton({ item, isActive, onPress }: { item: NavItem; isActive: boolean; onPress: () => void }) {
-    const scale = useRef(new Animated.Value(1)).current;
-
-    const handlePressIn = () => {
-        Animated.spring(scale, {
-            toValue: 0.88,
-            useNativeDriver: true,
-            speed: 40,
-            bounciness: 6,
-        }).start();
-    };
-
-    const handlePressOut = () => {
-        Animated.spring(scale, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 40,
-            bounciness: 6,
-        }).start();
-    };
-
-  const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
-
-  return (
-    <Pressable
-      style={commonStyles.menuButton}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      hitSlop={8}
-    >
-      <Animated.View style={{ alignItems: "center", transform: [{ scale }] }}>
-        <View
-          style={{
-            paddingHorizontal: isActive ? 18 : 0,
-            paddingVertical: isActive ? 6 : 0,
-            borderRadius: 16,
-            backgroundColor: isActive ? "#EDEEFB" : "transparent",
-          }}
-        >
-          <item.Icon width={26} height={26} fill={color} />
-        </View>
-        <Text
-          style={[
-            commonStyles.menuTitle,
-            { color, fontFamily: isActive ? "InstrumentSans-Regular" : "Inter-Regular", marginTop: 4 },
-          ]}
-        >
-          {item.label}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-export default function Page() {
+export default function AdminPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -90,20 +17,10 @@ export default function Page() {
         username,
         password
       });
-
       console.log(response);
-
     } catch (error) {
       console.log(error);
     }
-  };
-
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const onNavigate = (path: string) => {
-    if (pathname === path) return;
-    router.push(path as RelativePathString);
   };
 
   const [fontsLoaded] = useFonts({
@@ -112,130 +29,127 @@ export default function Page() {
   });
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.loginFrame}>
-        <View style={styles.titleFrame}>
-          <View style={styles.iconWrapper}>
-            <AdminIcon style={styles.loginIcon} width={36} height={36} fill="white" />
-          </View>
-          <Text style={styles.titleLabel}>Landlord Page</Text>
-        </View>
-
-        <View style={styles.inputFrame}>
-          <View style={styles.idFrame}>
-            <Text style={styles.loginLabel}>Username</Text>
-            <TextInput style={styles.loginInput} placeholder="Enter Username" onChangeText={setUsername} />
+    <View style={commonStyles.screen}>
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.iconWrapper}>
+              <AdminIcon width={28} height={28} fill="#5cbdb9" />
+            </View>
+            <Text style={styles.title}>System Access</Text>
+            <Text style={styles.subtitle}>Please authenticate to continue</Text>
           </View>
 
-          <View style={styles.passwordFrame}>
-            <Text style={styles.loginLabel}>Password</Text>
-            <TextInput style={styles.loginInput} placeholder="Enter Password" secureTextEntry={true} onChangeText={setPassword} />
-          </View>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your username"
+                placeholderTextColor="#A0AAB2"
+                onChangeText={setUsername}
+              />
+            </View>
 
-          <Pressable style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonLabel}>Login</Text>
-          </Pressable>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor="#A0AAB2"
+                secureTextEntry={true}
+                onChangeText={setPassword}
+              />
+            </View>
+
+            <Pressable style={styles.button} onPress={handleLogin}>
+              <Text style={styles.buttonText}>Sign In</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
-      <View
-        style={[
-          commonStyles.menuFrame,
-          {
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 10,
-            elevation: 12,
-          },
-        ]}
-      >
-        {NAV_ITEMS.map((item) => (
-          <NavButton
-            key={item.path}
-            item={item}
-            isActive={pathname === item.path}
-            onPress={() => onNavigate(item.path)}
-          />
-        ))}
-      </View>
+      <NavigationBar />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
-    backgroundColor: "#353535"
-  },
-  loginFrame: {
-    flex: 1,
-    width: 300,
-    height: 200,
-    borderColor: "gray",
-    marginBottom: 16,
-    alignSelf: "center",
     justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  loginLabel: {
-    color: "#000352",
-    fontFamily: "InstrumentSans-Regular",
-    fontSize: 20,
-    marginBottom: 8,
-    fontWeight: "bold"
-  },
-  loginInput: {
+  card: {
     width: "100%",
-    borderColor: "black",
-    borderWidth: 1,
-    fontSize: 16,
+    maxWidth: 340,
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    padding: 32,
+    shadowColor: "#2C3E50",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.05,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  titleFrame: {
-    backgroundColor: "#000352",
-    width: "100%",
+  header: {
+    alignItems: "center",
+    marginBottom: 32,
   },
   iconWrapper: {
-    alignItems: "center",
-  },
-  loginIcon: {
     padding: 16,
+    backgroundColor: "rgba(92, 189, 185, 0.15)",
+    borderRadius: 20,
+    marginBottom: 16,
   },
-  titleLabel: {
-    color: "white",
-    fontFamily: "InstrumentSans-Regular",
-    fontSize: 20,
-    marginBottom: 8,
+  title: {
+    fontSize: 22,
     fontWeight: "bold",
-    textAlign: "center",
+    fontFamily: "InstrumentSans-Regular",
+    color: "#2C3E50",
+    marginBottom: 4,
   },
-  inputFrame: {
-    backgroundColor: "gray",
-    width: "100%",
-    padding: 16
+  subtitle: {
+    fontSize: 14,
+    color: "#A0AAB2",
+    fontFamily: "Inter-Regular",
   },
-  idFrame: {
-    backgroundColor: "gray",
-    width: "100%",
-    height: 50,
-    borderColor: "gray",
-    borderWidth: 1,
-    marginBottom: 16
+  form: {
+    gap: 20,
   },
-  passwordFrame: {
-    backgroundColor: "gray",
-    width: "100%",
-    height: 50,
-    borderColor: "gray",
-    borderWidth: 1,
-    marginBottom: 16
+  inputGroup: {
+    gap: 8,
   },
-  loginButton: {
-    width: "100%",
-    backgroundColor: "#000352"
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2C3E50",
+    fontFamily: "Inter-Regular",
+    marginLeft: 4,
   },
-  loginButtonLabel: {
-    textAlign: "center",
-    fontSize: 16,
-    color: "white",
+  input: {
+    backgroundColor: "#ebf6f5",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    fontSize: 15,
+    color: "#2C3E50",
+    fontFamily: "Inter-Regular",
+  },
+  button: {
+    backgroundColor: "#5cbdb9",
+    height: 52,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "bold",
+    fontFamily: "InstrumentSans-Regular",
+    letterSpacing: 0.5,
   },
 });

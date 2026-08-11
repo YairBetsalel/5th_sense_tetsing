@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { View, Text, Animated, Easing, PanResponder, StyleSheet } from "react-native";
-import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
 import { Magnetometer } from 'expo-sensors';
 
 import { commonStyles } from "@/styles/commonStyles";
@@ -330,6 +330,13 @@ export default function MapPage() {
   return (
     <View style={commonStyles.screen}>
       <View style={indexStyles.topFrame}>
+
+        <View style={indexStyles.hudPanel}>
+          <Text style={indexStyles.hudLabel}>TARGET DISTANCE</Text>
+          <Text style={indexStyles.hudValue}>12.4m</Text>
+          <Text style={indexStyles.hudSubValue}>turn left</Text>
+        </View>
+
         <View style={localStyles.miniMapContainer}>
           <Animated.View
             style={[
@@ -343,11 +350,14 @@ export default function MapPage() {
               viewBox={`0 0 ${GRID_WIDTH} ${GRID_HEIGHT}`}
               style={StyleSheet.absoluteFill}
             >
+              <Path d="M0 4 L8 4 M4 0 L4 8" stroke="#ebf6f5" strokeWidth="0.1" />
+              <Circle cx="4" cy="4" r="3" stroke="#ebf6f5" strokeWidth="0.1" fill="none" />
+
               {pathData && (
                 <Path
                   d={pathData}
-                  stroke="#4CAF50"
-                  strokeWidth={0.3}
+                  stroke="#5cbdb9"
+                  strokeWidth={0.8}
                   fill="none"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -362,33 +372,33 @@ export default function MapPage() {
             />
           </Animated.View>
         </View>
+
       </View>
 
-      <View style={[indexStyles.centerFrame, { justifyContent: "center", alignItems: "center" }]}>
+      <View style={indexStyles.centerFrame}>
         <Animated.View
           style={{
             transform: [{ rotate: rotateInterpolate }],
             transformOrigin: "center center",
-            marginTop: -80,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.55,
-            shadowRadius: 6,
+            shadowColor: "#2C3E50",
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.08,
+            shadowRadius: 24,
             elevation: 8,
           }}
         >
           <Svg width={150} height={171} viewBox="0 0 70 80">
             <Defs>
               <LinearGradient id="cursorGradient" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
-                <Stop offset="1" stopColor="#C7C7C7" stopOpacity={1} />
+                <Stop offset="0" stopColor="#26ac49" stopOpacity={1} />
+                <Stop offset="1" stopColor="#ffffff" stopOpacity={1} />
               </LinearGradient>
             </Defs>
             <Path
               d="M35 0 L70 68 L35 54 L0 68 Z"
               fill="url(#cursorGradient)"
-              stroke="#D8D8D8"
-              strokeWidth={1}
+              stroke="#5cbdb9"
+              strokeWidth={1.5}
               strokeLinejoin="round"
             />
           </Svg>
@@ -405,13 +415,6 @@ export default function MapPage() {
         </View>
       </View>
 
-      <View style={indexStyles.bottomFrame}>
-        <View style={indexStyles.distanceFrame}>
-          <Text style={indexStyles.distanceTitle}>50 m</Text>
-          <Text style={indexStyles.distanceSubTitle}>turn left</Text>
-        </View>
-      </View>
-
       <NavigationBar />
     </View>
   );
@@ -422,25 +425,35 @@ const localStyles = StyleSheet.create({
     width: JOYSTICK_RADIUS * 2.5,
     height: JOYSTICK_RADIUS * 2.5,
     borderRadius: JOYSTICK_RADIUS * 1.25,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: 20,
+    bottom: 60,
   },
   joystickStick: {
     width: JOYSTICK_RADIUS,
     height: JOYSTICK_RADIUS,
     borderRadius: JOYSTICK_RADIUS / 2,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: '#5cbdb9',
+    shadowColor: "#2C3E50",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   miniMapContainer: {
     width: MINIMAP_SIZE,
     height: MINIMAP_SIZE,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: MINIMAP_SIZE / 2, // Circular to look like GTA/Mario
+    backgroundColor: '#ffffff',
+    borderRadius: MINIMAP_SIZE / 2,
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: "#2C3E50",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 6,
   },
   miniMapCursor: {
     position: 'absolute',
@@ -449,8 +462,12 @@ const localStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF3B30',
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
+    backgroundColor: '#fafafa',
+    borderWidth: 1.5,
+    borderColor: '#5cbdb9',
+    shadowColor: "#5cbdb9",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 });

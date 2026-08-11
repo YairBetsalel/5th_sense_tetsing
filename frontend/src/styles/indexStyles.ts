@@ -1,52 +1,55 @@
-import { StyleSheet} from "react-native";
+import { StyleSheet } from "react-native";
 
 export const indexStyles = StyleSheet.create({
     topFrame: {
-        backgroundColor: "transparent",
-        padding: 10,
-        minHeight: "30%",
+        paddingTop: 60,
+        paddingHorizontal: 24,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        zIndex: 10,
     },
 
-    map: {
-        backgroundColor: "transparent",
-        borderRadius: 25,
-        minHeight: 228,
-        width: "100%",
+    hudPanel: {
+        backgroundColor: "#ffffff",
+        borderRadius: 20,
+        padding: 16,
+        minWidth: 130,
+        shadowColor: "#2C3E50",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.04,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+
+    hudLabel: {
+        fontSize: 11,
+        color: "#A0AAB2",
+        fontWeight: "600",
+        letterSpacing: 0.5,
+        marginBottom: 4,
+        textTransform: "uppercase",
+    },
+
+    hudValue: {
+        fontSize: 26,
+        color: "#2C3E50",
+        fontWeight: "bold",
+        fontFamily: "InstrumentSans-Regular",
+    },
+
+    hudSubValue: {
+        fontSize: 14,
+        color: "#5cbdb9",
+        fontWeight: "600",
+        fontFamily: "InstrumentSans-Regular",
+        marginTop: 2,
     },
 
     centerFrame: {
-        backgroundColor: "transparent",
-        padding: 10,
-        minHeight: "40%",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingBottom: 140,
     },
-
-    bottomFrame: {
-        display: "flex",
-        backgroundColor: "transparent",
-        flexDirection: "row",
-    },
-
-    distanceFrame: {
-        backgroundColor: "transparent",
-        padding: 20,
-        textAlign: "left",
-        flex: 0.5,
-    },
-
-    distanceTitle: {
-        textAlign: "left",
-        fontSize: 32,
-        fontWeight: "bold",
-        fontFamily: "InstrumentSans-Regular",
-        color: "#ffffff",
-    },
-
-    distanceSubTitle: {
-        textAlign: "left",
-        fontSize: 24,
-        fontFamily: "InstrumentSans-Regular",
-        color: "#ffffff",
-    },
-
-    
 });

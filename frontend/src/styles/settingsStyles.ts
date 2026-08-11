@@ -1,81 +1,48 @@
 import { StyleSheet } from "react-native";
 
 export const settingsStyles = StyleSheet.create({
+    scrollContent: {
+        padding: 24,
+        paddingTop: 80,
+        paddingBottom: 120,
+    },
+
     sectionFrame: {
         width: "100%",
-        minHeight: 180,
-        padding: 20,
-        gap: 16,
-
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
-        borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.18)",
-        borderRadius: 20,
+        padding: 28,
+        gap: 20,
+        backgroundColor: "#ffffff",
+        borderRadius: 24,
+        shadowColor: "#2C3E50",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.04,
+        shadowRadius: 16,
+        elevation: 6,
     },
 
     sectionTitle: {
-        color: "#FFFFFF",
-        fontSize: 26,
-        fontWeight: "700",
+        color: "#2C3E50",
+        fontSize: 16,
+        fontWeight: "bold",
         fontFamily: "InstrumentSans-Regular",
-        textAlign: "left",
-    },
-
-    buttonContainer: {
-        gap: 12,
+        letterSpacing: 1,
+        textTransform: "uppercase",
     },
 
     button: {
-        minHeight: 48,
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-
-        borderWidth: 1,
-        borderRadius: 12,
-
+        width: "100%",
+        paddingVertical: 16,
+        backgroundColor: "#ebf6f5",
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
     },
 
     buttonText: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: "600",
+        color: "#5cbdb9",
         fontFamily: "InstrumentSans-Regular",
-    },
-
-    redButton: {
-        backgroundColor: "rgba(239, 68, 68, 0.15)",
-        borderColor: "#EF4444",
-    },
-
-    redButtonText: {
-        color: "#F87171",
-    },
-
-    blueButton: {
-        backgroundColor: "rgba(59, 130, 246, 0.15)",
-        borderColor: "#3B82F6",
-    },
-
-    blueButtonText: {
-        color: "#60A5FA",
-    },
-
-    yellowButton: {
-        backgroundColor: "rgba(234, 179, 8, 0.15)",
-        borderColor: "#EAB308",
-    },
-
-    yellowButtonText: {
-        color: "#FACC15",
-    },
-
-    greenButton: {
-        backgroundColor: "rgba(34, 197, 94, 0.15)",
-        borderColor: "#22C55E",
-    },
-
-    greenButtonText: {
-        color: "#4ADE80",
+        letterSpacing: 0.5,
     },
 });

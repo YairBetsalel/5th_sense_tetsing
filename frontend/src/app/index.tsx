@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { View, Text, Animated, Easing, PanResponder, StyleSheet } from "react-native";
+
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
+import {View, Text, Animated, Easing, PanResponder, StyleSheet, Pressable} from "react-native";
+
 import { Magnetometer } from 'expo-sensors';
 
 import { commonStyles } from "@/styles/commonStyles";
@@ -11,6 +13,7 @@ import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 import NavigationBar from '@/components/NavigationBar';
 
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
+import {router} from "expo-router";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -413,6 +416,30 @@ export default function MapPage() {
             ]}
           />
         </View>
+      </View>
+
+
+
+      <View style={indexStyles.bottomFrame}>
+        <View style={indexStyles.distanceFrame}>
+          <Text style={indexStyles.distanceTitle}>50 m</Text>
+          <Text style={indexStyles.distanceSubTitle}>turn left</Text>
+        </View>
+      </View>
+      <View style={{ padding: 20, position: 'absolute', top: 50, zIndex: 10, width: '100%' }}>
+        <Pressable
+          onPress={() => router.push("/destination")}
+          style={{
+            backgroundColor: "#000352",
+            padding: 16,
+            borderRadius: 8,
+            alignItems: "center"
+          }}
+        >
+          <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
+            Choose Destination
+          </Text>
+        </Pressable>
       </View>
 
       <NavigationBar />

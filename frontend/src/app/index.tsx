@@ -1,9 +1,10 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
-import {View, Text, Animated, Easing, PanResponder, StyleSheet, Pressable} from "react-native";
+import { View, Text, Animated, Easing, StyleSheet } from "react-native";
 
 import { Magnetometer } from 'expo-sensors';
+import * as Location from 'expo-location';
 
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
@@ -13,18 +14,20 @@ import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 import NavigationBar from '@/components/NavigationBar';
 
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
-import {router, useLocalSearchParams, Redirect} from "expo-router";
-
+import { router, useLocalSearchParams, Redirect } from "expo-router";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const GRID_WIDTH = 8;
 const GRID_HEIGHT = 8;
-const JOYSTICK_RADIUS = 40;
-const MAX_SPEED = 0.05;
 const ARRIVAL_THRESHOLD = 0.5;
 const HEADING_CONE_DEGREES = 15;
 const MINIMAP_SIZE = 150;
+
+// Earth radius in meters for Equirectangular approximation
+const EARTH_RADIUS = 6371000;
+// Cell size derived from your API
+const METERS_PER_CELL = 27;
 
 const START = { x: 0, y: 0 };
 const END = { x: 7, y: 7 };
@@ -43,7 +46,7 @@ const angularDistance = (a: number, b: number) => Math.abs(shortestAngleDelta(a,
 
 export default function MapPage() {
 
-  const {mapId, destinationId} = useLocalSearchParams();
+  const { mapId, destinationId } = useLocalSearchParams();
 
   const rotation = useRef(new Animated.Value(0)).current;
   const rotationValueRef = useRef(0);
@@ -51,15 +54,14 @@ export default function MapPage() {
   const mapRotation = useRef(new Animated.Value(0)).current;
   const mapRotationValueRef = useRef(0);
 
-  const joystickPan = useRef(new Animated.ValueXY()).current;
   const mapCursorPan = useRef(new Animated.ValueXY()).current;
 
   const vibrationRunId = useRef(0);
   const isCorrectRef = useRef(false);
 
   const virtualPos = useRef({ x: 0, y: 0 });
-  const joystickVelocity = useRef({ dx: 0, dy: 0 });
   const currentHeadingRef = useRef(0);
+  const initialLocationRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const safePathRef = useRef<[number, number][]>([]);
   const targetIndexRef = useRef(0);
@@ -67,10 +69,9 @@ export default function MapPage() {
   const [safePath, setSafePathState] = useState<[number, number][]>([]);
 
   // If map or destination is not selected, redirect the user to choose a map and destination
-  if(!mapId || !destinationId){
+  if (!mapId || !destinationId) {
     return <Redirect href={"/destination"} />;
   }
-
 
   // Convert mapId to a number
   const currentMapId = Number(mapId);
@@ -143,88 +144,80 @@ export default function MapPage() {
     }
   }, [safePath]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_e, gestureState) => {
-        const distance = Math.sqrt(gestureState.dx ** 2 + gestureState.dy ** 2);
-        const scale = distance > JOYSTICK_RADIUS ? JOYSTICK_RADIUS / distance : 1;
-
-        const clampedX = gestureState.dx * scale;
-        const clampedY = gestureState.dy * scale;
-
-        joystickPan.setValue({ x: clampedX, y: clampedY });
-
-        joystickVelocity.current = {
-          dx: clampedX / JOYSTICK_RADIUS,
-          dy: clampedY / JOYSTICK_RADIUS,
-        };
-      },
-      onPanResponderRelease: () => {
-        Animated.spring(joystickPan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
-        joystickVelocity.current = { dx: 0, dy: 0 };
-      },
-      onPanResponderTerminate: () => {
-        console.warn("[MapPage] PanResponder gesture terminated by system.");
-        Animated.spring(joystickPan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
-        joystickVelocity.current = { dx: 0, dy: 0 };
-      },
-    })
-  ).current;
-
+  // LIVE GPS TRACKING REPLACES JOYSTICK
   useEffect(() => {
-    let animationFrameId: number;
+    let locationSubscription: Location.LocationSubscription | null = null;
 
-    const updatePosition = () => {
-      try {
-        const { dx, dy } = joystickVelocity.current;
+    const startTracking = async () => {
+      // 1. Request GPS Permissions
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('[MapPage] GPS Permission denied');
+        return;
+      }
 
-        if (dx !== 0 || dy !== 0) {
-          let { x, y } = virtualPos.current;
+      // 2. Subscribe to live GPS updates
+      locationSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 1000,     // Update every second
+          distanceInterval: 1,    // Update every 1 meter of movement
+        },
+        (location) => {
+          const { latitude, longitude } = location.coords;
 
-          const theta = currentHeadingRef.current * (Math.PI / 180);
-          const vx = dx * Math.cos(theta) - dy * Math.sin(theta);
-          const vy = dx * Math.sin(theta) + dy * Math.cos(theta);
+          // 3. Anchor the start position as (0,0)
+          if (!initialLocationRef.current) {
+            initialLocationRef.current = { lat: latitude, lon: longitude };
+            virtualPos.current = { x: 0, y: 0 };
+            mapCursorPan.setValue({ x: 0, y: 0 });
+            return;
+          }
 
-          x += vx * MAX_SPEED;
-          y += vy * MAX_SPEED;
+          // 4. Calculate Equirectangular distances in meters
+          const lat1 = initialLocationRef.current.lat;
+          const lon1 = initialLocationRef.current.lon;
+          const lat2 = latitude;
+          const lon2 = longitude;
 
-          x = ((x % GRID_WIDTH) + GRID_WIDTH) % GRID_WIDTH;
-          y = ((y % GRID_HEIGHT) + GRID_HEIGHT) % GRID_HEIGHT;
+          const toRad = Math.PI / 180;
 
-          virtualPos.current = { x, y };
-          mapCursorPan.setValue({ x, y });
+          // Calculate X (East/West) and Y (North/South) displacement in meters
+          const xMeters = (lon2 - lon1) * toRad * Math.cos(lat1 * toRad) * EARTH_RADIUS;
 
+          // Note: Subtracting lat2 from lat1 to map North as negative Y (standard UI grid projection)
+          const yMeters = (lat1 - lat2) * toRad * EARTH_RADIUS;
+
+          // 5. Convert meters to your Map's Grid Coordinates
+          const currentX = xMeters / METERS_PER_CELL;
+          const currentY = yMeters / METERS_PER_CELL;
+
+          virtualPos.current = { x: currentX, y: currentY };
+          mapCursorPan.setValue({ x: currentX, y: currentY });
+
+          // 6. Path arrival logic
           const path = safePathRef.current;
           const idx = targetIndexRef.current;
           if (path.length > 0 && idx < path.length) {
             const target = path[idx];
-            if (!target || target.length < 2) {
-              console.error(`[MapPage] Invalid target coordinate at index ${idx}:`, target);
-              return;
-            }
-            const [tx, ty] = target;
-            const distToTarget = Math.hypot(tx - x, ty - y);
-            if (distToTarget < ARRIVAL_THRESHOLD && idx < path.length - 1) {
-              targetIndexRef.current = idx + 1;
+            if (target && target.length >= 2) {
+              const distToTarget = Math.hypot(target[0] - currentX, target[1] - currentY);
+              if (distToTarget < ARRIVAL_THRESHOLD && idx < path.length - 1) {
+                targetIndexRef.current = idx + 1;
+              }
             }
           }
         }
-      } catch (err) {
-        console.error("[MapPage] Error in virtual movement loop:", err);
-      }
-
-      animationFrameId = requestAnimationFrame(updatePosition);
+      );
     };
 
-    animationFrameId = requestAnimationFrame(updatePosition);
-    return () => cancelAnimationFrame(animationFrameId);
+    startTracking();
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, [mapCursorPan]);
 
   useEffect(() => {
@@ -418,19 +411,7 @@ export default function MapPage() {
             />
           </Svg>
         </Animated.View>
-
-        <View style={localStyles.joystickBase}>
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={[
-              localStyles.joystickStick,
-              { transform: joystickPan.getTranslateTransform() },
-            ]}
-          />
-        </View>
       </View>
-
-
 
       <View style={indexStyles.bottomFrame}>
         <View style={indexStyles.distanceFrame}>
@@ -445,27 +426,6 @@ export default function MapPage() {
 }
 
 const localStyles = StyleSheet.create({
-  joystickBase: {
-    width: JOYSTICK_RADIUS * 2.5,
-    height: JOYSTICK_RADIUS * 2.5,
-    borderRadius: JOYSTICK_RADIUS * 1.25,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 100,
-  },
-  joystickStick: {
-    width: JOYSTICK_RADIUS,
-    height: JOYSTICK_RADIUS,
-    borderRadius: JOYSTICK_RADIUS / 2,
-    backgroundColor: '#5cbdb9',
-    shadowColor: "#2C3E50",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
   miniMapContainer: {
     width: MINIMAP_SIZE,
     height: MINIMAP_SIZE,

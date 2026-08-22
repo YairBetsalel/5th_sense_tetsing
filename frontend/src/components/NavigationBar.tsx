@@ -6,6 +6,9 @@ import MapIcon from "@/assets/icons/map.svg";
 import SettingsIcon from "@/assets/icons/settings.svg";
 import AdminIcon from "@/assets/icons/admin.svg";
 
+// Temporarily using the map icon. To be changed later
+import DestinationIcon from "@/assets/icons/map.svg";
+
 import { commonStyles } from "@/styles/commonStyles";
 
 const ACTIVE_COLOR = "#5cbdb9";
@@ -19,6 +22,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
     { label: "Map", path: "/", Icon: MapIcon },
+    { label: "Destination", path: "/destination", Icon: DestinationIcon},
     { label: "Settings", path: "/settings", Icon: SettingsIcon },
     { label: "System", path: "/admin", Icon: AdminIcon },
 ];

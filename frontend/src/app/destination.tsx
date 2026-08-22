@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import NavigationBar from "@/components/NavigationBar";
 import { request } from "@/api/client";
+import {commonStyles} from "@/styles/commonStyles";
 
 // Types based on Map Table structure
 type MapItem = {
@@ -110,22 +111,27 @@ export default function DestinationPage(){
       };
 
       if (!fontsLoaded) {
-        return <ActivityIndicator size="large" color="#000352" style={styles.centreLoader} />;
+        return (
+            <View style={[commonStyles.screen, styles.centerLoader]}>
+                <ActivityIndicator size="large" color="#5cbdb9" />
+            </View>
+        );
       }
 
       return (
-        <View style={styles.screen}>
-          <View style={styles.headerFrame}>
-            <Text
-              style={styles.headerTitle}
-              accessibilityRole="header"
-            >
-              {!selectedMap ? "Select a Map" : "Select a Destination"}
-            </Text>
-          </View>
+        <View style={commonStyles.screen}>
+          <View style={styles.container}>
+              <View style={styles.header}>
+                  <Text
+                  style={styles.title}
+                  accessibilityRole="header"
+                >
+                  {!selectedMap ? "Select a Map" : "Select a Destination"}
+                </Text>
+              </View>
 
           <View style={styles.contentFrame}>
-            {loading && <ActivityIndicator size="large" color="#000352" />}
+            {loading && <ActivityIndicator size="large" color="#5cbdb9" style={styles.loader} />}
 
             {error && (
               <Text style={styles.errorText} accessibilityLiveRegion="assertive">
@@ -138,15 +144,16 @@ export default function DestinationPage(){
               <FlatList
                 data={maps}
                 keyExtractor={(item) => item.id.toString()}
+                contentContainerStyle={styles.listContainer}
                 renderItem={({ item }) => (
                   <Pressable
-                    style={styles.listItem}
+                    style={styles.card}
                     onPress={() => setSelectedMap(item)}
                     accessibilityRole="button"
                     accessibilityLabel={`Select map ${item.name}`}
                     accessibilityHint="Double tap to view destinations for this map"
                   >
-                    <Text style={styles.listItemText}>{item.name}</Text>
+                    <Text style={styles.cardText}>{item.name}</Text>
                   </Pressable>
                 )}
                 ListEmptyComponent={
@@ -170,17 +177,18 @@ export default function DestinationPage(){
                 <FlatList
                   data={destinations}
                   keyExtractor={(item) => item.id.toString()}
+                  contentContainerStyle={styles.listContainer}
                   renderItem={({ item }) => {
                     const isSelected = selectedDestination?.id === item.id;
                     return (
                       <Pressable
-                        style={[styles.listItem, isSelected && styles.listItemSelected]}
+                        style={[styles.card, isSelected && styles.cardSelected]}
                         onPress={() => setSelectedDestination(item)}
                         accessibilityRole="button"
                         accessibilityState={{ selected: isSelected }}
                         accessibilityLabel={`Destination ${item.name}`}
                       >
-                        <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>
+                        <Text style={[styles.cardText, isSelected && styles.cardTextSelected]}>
                           {item.name}
                         </Text>
                       </Pressable>
@@ -194,18 +202,18 @@ export default function DestinationPage(){
                 {/* Confirm navigation */}
                 {selectedDestination && (
                   <Pressable
-                    style={styles.actionButton}
+                    style={styles.button}
                     onPress={handleStartNavigation}
                     accessibilityRole="button"
                     accessibilityLabel={`Start navigation to ${selectedDestination.name}`}
                   >
-                    <Text style={styles.actionButtonText}>Start Navigation</Text>
+                    <Text style={styles.buttonText}>Start Navigation</Text>
                   </Pressable>
                 )}
               </>
             )}
           </View>
-
+          </View>
           <NavigationBar />
         </View>
       );
@@ -213,91 +221,110 @@ export default function DestinationPage(){
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#353535",
-  },
-  centreLoader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#353535",
-  },
-  headerFrame: {
-    backgroundColor: "#000352",
-    width: "100%",
-    paddingTop: 60,
-    paddingBottom: 20,
-    alignItems: "center",
-  },
-  headerTitle: {
-    color: "white",
-    fontFamily: "InstrumentSans-Regular",
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  contentFrame: {
-    flex: 1,
-    padding: 20,
-    width: "100%",
-  },
-  listItem: {
-    backgroundColor: "gray",
-    padding: 24,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  listItemSelected: {
-    backgroundColor: "#EDEEFB",
-    borderColor: "#000352",
-  },
-  listItemText: {
-    color: "white",
-    fontFamily: "InstrumentSans-Regular",
-    fontSize: 24,
-    fontWeight: "600",
-  },
-  listItemTextSelected: {
-    color: "#000352",
-  },
-  backButton: {
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  backButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontFamily: "Inter-Regular",
-    textDecorationLine: "underline",
-  },
-  actionButton: {
-    backgroundColor: "#000352",
-    padding: 24,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: "center",
-  },
-  actionButtonText: {
-    color: "white",
-    fontSize: 24,
-    fontFamily: "InstrumentSans-Regular",
-    fontWeight: "bold",
-  },
-  errorText: {
-    color: "#FF6B6B",
-    fontSize: 18,
-    textAlign: "center",
-    marginBottom: 16,
-    fontFamily: "Inter-Regular",
-  },
-  emptyText: {
-    color: "white",
-    fontSize: 18,
-    textAlign: "center",
-    marginTop: 40,
-    fontFamily: "Inter-Regular",
-  },
+      centerLoader: {
+          justifyContent: "center",
+          alignItems: "center",
+      },
+    container: {
+        flex: 1,
+        padding: 24,
+        paddingTop: 60,
+    },
+    header: {
+          alignItems: "center",
+        marginBottom: 24,
+    },
+    title: {
+          fontSize: 22,
+        fontWeight: "bold",
+        fontFamily: "InstrumentSans-Regular",
+        color: "#2C3E50",
+        marginBottom: 4,
+        textAlign:"center",
+    },
+    subtitle:{
+          fontSize: 14,
+        color: "#A0AAB2",
+        fontFamily: "Inter-Regular",
+        textAlign: "center",
+    },
+    contentFrame: {
+          flex:1,
+        width:"100%",
+        paddingBottom: 80,
+    },
+    listContainer: {
+          gap: 12,
+        paddingBottom: 20,
+    },
+    loader: {
+          marginTop: 40,
+    },
+    card: {
+          backgroundColor: "#ffffff",
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: "#2C3E50",
+        shadowOffset: {width:0, height: 4},
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 4,
+        borderWidth: 1.5,
+        borderColor: "transparent",
+    },
+    cardSelected: {
+          backgroundColor: "#ebf6f5",
+        borderColor: "#5cbdb9",
+    },
+    cardText: {
+          fontSize: 16,
+        fontFamily: "Inter-Regular",
+        fontWeight: "600",
+        color: "#2C3E50",
+    },
+    cardTextSelected: {
+          color: "#5cbdb9",
+        fontWeight: "bold",
+    },
+    backButton: {
+          alignSelf: "flex-start",
+        paddingVertical: 12,
+        marginBottom: 8,
+    },
+    backButtonText: {
+          color: "#A0AAB2",
+        fontSize: 14,
+        fontFamily: "Inter-Regular",
+        fontWeight: "500",
+    },
+    button: {
+          backgroundColor: "#5cbdb9",
+        height: 52,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        marginTop: 16,
+    },
+    buttonText: {
+          color: "#ffffff",
+        fontSize: 15,
+        fontWeight: "bold",
+        fontFamily: "InstrumentSans-Regular",
+        letterSpacing: 0.5,
+    },
+    errorText: {
+          color: "#FF6B6B",
+        fontSize: 15,
+        textAlign: "center",
+        marginBottom: 16,
+        fontFamily: "Inter-Regular",
+    },
+    emptyText: {
+          color: "#A0AAB2",
+        fontSize: 15,
+        textAlign: "center",
+        marginTop: 40,
+        fontFamily: "Inter-Regular",
+    },
+
 });

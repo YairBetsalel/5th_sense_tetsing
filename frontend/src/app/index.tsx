@@ -13,7 +13,8 @@ import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 import NavigationBar from '@/components/NavigationBar';
 
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
-import {router} from "expo-router";
+import {router, useLocalSearchParams, Redirect} from "expo-router";
+
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -25,7 +26,6 @@ const ARRIVAL_THRESHOLD = 0.5;
 const HEADING_CONE_DEGREES = 15;
 const MINIMAP_SIZE = 150;
 
-const MAP_ID = 2;
 const START = { x: 0, y: 0 };
 const END = { x: 7, y: 7 };
 
@@ -42,6 +42,9 @@ const shortestAngleDelta = (from: number, to: number) => {
 const angularDistance = (a: number, b: number) => Math.abs(shortestAngleDelta(a, b));
 
 export default function MapPage() {
+
+  const {mapId, destinationId} = useLocalSearchParams();
+
   const rotation = useRef(new Animated.Value(0)).current;
   const rotationValueRef = useRef(0);
 
@@ -62,6 +65,15 @@ export default function MapPage() {
   const targetIndexRef = useRef(0);
 
   const [safePath, setSafePathState] = useState<[number, number][]>([]);
+
+  // If map or destination is not selected, redirect the user to choose a map and destination
+  if(!mapId || !destinationId){
+    return <Redirect href={"/destination"} />;
+  }
+
+
+  // Convert mapId to a number
+  const currentMapId = Number(mapId);
 
   const applySafePath = useCallback((path: [number, number][]) => {
     if (!path || path.length === 0) {
@@ -99,7 +111,7 @@ export default function MapPage() {
     let cancelled = false;
     const fetchPath = async () => {
       try {
-        const response = await request_MapsIdPath(MAP_ID, START.x, START.y, END.x, END.y);
+        const response = await request_MapsIdPath(currentMapId, START.x, START.y, END.x, END.y);
         if (!response) {
           console.error("[MapPage] API returned an empty response for request_MapsIdPath.");
           return;
@@ -120,7 +132,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [applySafePath]);
+  }, [applySafePath, currentMapId]);
 
   useEffect(() => {
     if (safePath.length > 0 && (safePath[0][0] !== START.x || safePath[0][1] !== START.y)) {
@@ -425,21 +437,6 @@ export default function MapPage() {
           <Text style={indexStyles.distanceTitle}>50 m</Text>
           <Text style={indexStyles.distanceSubTitle}>turn left</Text>
         </View>
-      </View>
-      <View style={{ padding: 20, position: 'absolute', top: 50, zIndex: 10, width: '100%' }}>
-        <Pressable
-          onPress={() => router.push("/destination")}
-          style={{
-            backgroundColor: "#000352",
-            padding: 16,
-            borderRadius: 8,
-            alignItems: "center"
-          }}
-        >
-          <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
-            Choose Destination
-          </Text>
-        </Pressable>
       </View>
 
       <NavigationBar />

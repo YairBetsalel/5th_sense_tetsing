@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Map
+from .models import Map, Destinations
 
 # Tables to be displayed in the Django admin panel
 
-
+@admin.register(Destinations)
 
 @admin.register(Map)
 # Permission restrictions for security

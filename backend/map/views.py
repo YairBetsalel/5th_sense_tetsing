@@ -11,13 +11,25 @@ from .permissions import IsSuperAdminOrMapOwner
 class MapListCreateView(generics.ListCreateAPIView):
     # List maps or create a map
     serializer_class = MapSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]
+
+    def get_permissions(self):
+        # Any user may see the maps but only authenticated users may create one
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsSuperAdminOrMapOwner()]
 
     def get_queryset(self):
+        queryset = Map.objects.all()
         user = self.request.user
-        if user.user_role == 'superadmin':
-            return Map.objects.all()
-        return Map.objects.filter(created_by=user)
+        # Superadmin and users can see all the maps
+        if user.is_authenticated and getattr(user, 'user_role', None) == 'superadmin':
+            return queryset
+
+        # Admin can only see the maps they created
+        if user.is_authenticated:
+            return queryset.filter(created_by=user)
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -80,9 +92,11 @@ class DestinationsListCreateView(generics.ListCreateAPIView):
             return queryset.filter(map_id=map_id)
 
         user = self.request.user
+        # Superadmin and users can see all the destinations
         if user.is_authenticated and getattr(user, 'user_role', None) == 'superadmin':
             return queryset
 
+        # Admin can only see the destinations they created
         if user.is_authenticated:
             return queryset.filter(created_by=user)
 
@@ -101,4 +115,9 @@ class DestinationsDetailView(generics.RetrieveUpdateDestroyAPIView):
     # Edit or delete a destination
     queryset = Destinations.objects.all()
     serializer_class = DestinationsSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]
+
+    def get_permissions(self):
+        # Any one may view details but not edit or delete
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsSuperAdminOrMapOwner()]

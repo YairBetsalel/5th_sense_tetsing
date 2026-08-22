@@ -12,7 +12,6 @@ class Map(models.Model):
 
     # cell size in metres
     cell_size = models.FloatField(default=1.0, blank=False)
-
     # Dimensions of the grid
     length = models.FloatField(blank=False)
     width = models.FloatField(blank=False)

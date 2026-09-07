@@ -1,4 +1,0 @@
-Anchor (ONLY rasberrypi) sends the following information:
-* Coordinates
-* Distance
-* Velocity

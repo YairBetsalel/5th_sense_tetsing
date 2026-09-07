@@ -11,12 +11,14 @@ import {
   PanResponderGestureState,
 } from "react-native";
 import { Magnetometer } from 'expo-sensors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
 import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 import NavigationBar from '@/components/NavigationBar';
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
+import { request } from "@/api/client";
 import { router, useLocalSearchParams, Redirect } from "expo-router";
 
 const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -26,14 +28,18 @@ const grid_H = 8;
 const arrvlThresh = 0.5;
 const heading_ConeDeg = 15;
 const miniMap_sz = 150;
+const metersPerCell = 1;
+
+const rootBleedBg = '#ffffff';
+const radarBaseBg = '#ffffff';
 
 const startPt = { x: 0, y: 0 };
-const end_PT = { x: 7, y: 7 };
 
 const joyBaseSz = 132;
 const joyKnob_sz = 56;
 const joyMaxRadius = (joyBaseSz - joyKnob_sz) / 2;
-const moveSpeedCells = 2.2;
+
+const moveSpeedCells = 1;
 const moveTick_ms = 50;
 
 const isJoyVisible = true;
@@ -76,6 +82,11 @@ export default function MapPage() {
   const tgtIdxRef = useRef(0);
 
   const [safe_path, setSafePath] = useState<[number, number][]>([]);
+  const [distToNext, setDistToNext] = useState(0);
+  const [turnDirection, setTurnDirection] = useState<'left' | 'right' | 'straight'>('straight');
+
+  // MOVED INSIDE THE COMPONENT:
+  const [end_PT, setEnd_PT] = useState<{ x: number, y: number } | null>(null);
 
   const joyKnobPan = useRef(new Animated.ValueXY()).current;
   const joyVecRef = useRef({ x: 0, y: 0 });
@@ -112,7 +123,7 @@ export default function MapPage() {
     };
   }, [rdarPulse]);
 
-  const pulse_Radius = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 3.2] });
+  const pulse_Radius = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.8] });
   const pulse_Opacity = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
 
   if (!mapId || !destinationId) {
@@ -121,11 +132,42 @@ export default function MapPage() {
 
   const num_mapId = Number(mapId);
 
+  // 1. FETCH DESTINATION COORDINATES
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchDest = async () => {
+      try {
+        const dests = await request<any[]>(`/api/destinations/?map_id=${num_mapId}`);
+        const targetDest = dests.find(d => d.id === Number(destinationId));
+
+        if (targetDest && targetDest.coordinates && !isCancelled) {
+          let ex = 0, ey = 0;
+          let coords = targetDest.coordinates;
+
+          // Defensively parse in case Django sends a string instead of JSON
+          if (typeof coords === 'string') {
+            try { coords = JSON.parse(coords); } catch (e) { console.error("Parse error"); }
+          }
+
+          if (Array.isArray(coords)) {
+            ex = Number(coords[0]);
+            ey = Number(coords[1]);
+          } else {
+            ex = Number(coords.x);
+            ey = Number(coords.y);
+          }
+          setEnd_PT({ x: ex, y: ey });
+        }
+      } catch (err) {
+        console.error("Failed to fetch destination details:", err);
+      }
+    };
+    fetchDest();
+    return () => { isCancelled = true; };
+  }, [num_mapId, destinationId]);
+
   const setSafePathHandler = useCallback((pArr: [number, number][]) => {
-    if (!pArr || pArr.length === 0) {
-      console.warn("[MapPage] Attempted to apply an empty or invalid safePath:", pArr);
-      return;
-    }
+    if (!pArr || pArr.length === 0) return;
     safePath_Ref.current = pArr;
     tgtIdxRef.current = 0;
     setSafePath(pArr);
@@ -153,9 +195,12 @@ export default function MapPage() {
     [haltVibration],
   );
 
+  // 2. FETCH PATH ONCE END_PT IS LOADED
   useEffect(() => {
     let isCancelled = false;
     const loadPathData = async () => {
+      if (!end_PT) return; // Wait for dynamic coordinates
+
       try {
         const resData = await request_MapsIdPath(num_mapId, startPt.x, startPt.y, end_PT.x, end_PT.y);
         if (!resData || !resData.path || resData.path.length === 0) {
@@ -163,10 +208,31 @@ export default function MapPage() {
           return;
         }
 
-        const revPath = [...resData.path].reverse();
+        // Bulletproof Sanitize: Strips bad data to stop NaN math crashes completely
+        const cleanPath = resData.path.map((pt: any) => {
+          if (Array.isArray(pt)) return [Number(pt[0]), Number(pt[1])];
+          if (typeof pt === 'object' && pt !== null) return [Number(pt.x), Number(pt.y)];
+          if (typeof pt === 'string') {
+            const match = pt.match(/-?\d+(\.\d+)?/g);
+            if (match && match.length >= 2) return [Number(match[0]), Number(match[1])];
+          }
+          return [NaN, NaN]; // Caught by filter below
+        }).filter((pt: any) => Number.isFinite(pt[0]) && Number.isFinite(pt[1])) as [number, number][];
+
+        if (cleanPath.length === 0) return;
+
+        let finalPath = cleanPath;
+
+        // Smart reverse: only reverses if the end of the array is closest to spawn
+        const firstPtDist = Math.hypot(finalPath[0][0] - startPt.x, finalPath[0][1] - startPt.y);
+        const lastPtDist = Math.hypot(finalPath[finalPath.length - 1][0] - startPt.x, finalPath[finalPath.length - 1][1] - startPt.y);
+
+        if (lastPtDist < firstPtDist) {
+          finalPath = finalPath.reverse();
+        }
 
         if (!isCancelled) {
-          setSafePathHandler(revPath);
+          setSafePathHandler(finalPath);
         }
       } catch (err) {
         console.error("[MapPage] Failed to fetch path from API:", err);
@@ -176,7 +242,7 @@ export default function MapPage() {
     return () => {
       isCancelled = true;
     };
-  }, [setSafePathHandler, num_mapId]);
+  }, [setSafePathHandler, num_mapId, end_PT]);
 
   useEffect(() => {
     if (safe_path.length > 0 && (safe_path[0][0] !== startPt.x || safe_path[0][1] !== startPt.y)) {
@@ -219,6 +285,9 @@ export default function MapPage() {
         const curTarget = curPath[cIdx];
         if (curTarget && curTarget.length >= 2) {
           const distToTgt = Math.hypot(curTarget[0] - nxt_X, curTarget[1] - nxt_Y);
+
+          const newDistLabel = Math.round(distToTgt * metersPerCell);
+          setDistToNext((prevDist) => (prevDist !== newDistLabel ? newDistLabel : prevDist));
 
           if (distToTgt < arrvlThresh && cIdx < curPath.length - 1) {
             tgtIdxRef.current = cIdx + 1;
@@ -321,6 +390,14 @@ export default function MapPage() {
           const angDiff = angDistance(tgtAngVal, headVal);
           const isPointedCorrect = angDiff <= heading_ConeDeg;
 
+          const signedDelta = shortAngDelta(headVal, tgtAngVal);
+          const newDirection: 'left' | 'right' | 'straight' = isPointedCorrect
+            ? 'straight'
+            : signedDelta > 0
+              ? 'right'
+              : 'left';
+          setTurnDirection((prevDir) => (prevDir !== newDirection ? newDirection : prevDir));
+
           if (isPointedCorrect && !isCorrctRef.current) {
             isCorrctRef.current = true;
             triggerVibLoop('success');
@@ -331,6 +408,10 @@ export default function MapPage() {
         } else if (isCorrctRef.current) {
           isCorrctRef.current = false;
           haltVibration();
+        }
+
+        if (!isActiveTgt) {
+          setTurnDirection((prevDir) => (prevDir !== 'straight' ? 'straight' : prevDir));
         }
 
         const rawRotDeg = normAngle(tgtAngVal - headVal);
@@ -396,19 +477,27 @@ export default function MapPage() {
     ? [[startPt.x, startPt.y] as [number, number], ...safe_path]
     : safe_path;
 
-  const svgPathStr =
-    visPathPts.length > 0
-      ? visPathPts.map((pt, ind) => `${ind === 0 ? 'M' : 'L'}${pt[0]} ${pt[1]}`).join(' ')
-      : undefined;
+  const svgPathStr = useMemo(() => {
+    if (!visPathPts || visPathPts.length === 0) return undefined;
+    return visPathPts
+      .map((pt, ind) => `${ind === 0 ? 'M' : 'L'} ${pt[0]} ${pt[1]}`)
+      .join(' ');
+  }, [visPathPts]);
+
+  // Fallback to 0 if distance ever tries to render as NaN
+  const distToNextLabel = isNaN(distToNext) ? 0 : distToNext;
+
+  const turnLabel =
+    turnDirection === 'left' ? 'turn left' : turnDirection === 'right' ? 'turn right' : 'straight ahead';
 
   return (
-    <View style={commonStyles.screen}>
+    <SafeAreaView style={[commonStyles.screen, localStyles.safeAreaRoot]} edges={['top', 'bottom']}>
       <View style={indexStyles.topFrame}>
 
         <View style={indexStyles.hudPanel}>
           <Text style={indexStyles.hudLabel}>TARGET DISTANCE</Text>
-          <Text style={indexStyles.hudValue}>12.4m</Text>
-          <Text style={indexStyles.hudSubValue}>turn left</Text>
+          <Text style={indexStyles.hudValue}>{distToNextLabel}m</Text>
+          <Text style={indexStyles.hudSubValue}>{turnLabel}</Text>
         </View>
 
         <View style={localStyles.miniMapContainer}>
@@ -425,9 +514,9 @@ export default function MapPage() {
               style={StyleSheet.absoluteFill}
             >
               <Defs>
-                <RadialGradient id="radarGlow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0" stopColor="#5cbdb9" stopOpacity={0.5} />
-                  <Stop offset="1" stopColor="#5cbdb9" stopOpacity={0} />
+                <RadialGradient id="mapBackdrop" cx="50%" cy="50%" r="65%">
+                  <Stop offset="0" stopColor="#eaf7f5" stopOpacity={1} />
+                  <Stop offset="1" stopColor="#ffffff" stopOpacity={1} />
                 </RadialGradient>
                 <LinearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                   <Stop offset="0" stopColor="#26ac49" stopOpacity={0.9} />
@@ -435,11 +524,26 @@ export default function MapPage() {
                 </LinearGradient>
               </Defs>
 
+              <Circle cx={grid_W / 2} cy={grid_H / 2} r={grid_W} fill="url(#mapBackdrop)" />
+
+              {[1, 2, 3, 4].map((ringR, ringIdx) => (
+                <Circle
+                  key={`radar-ring-${ringR}`}
+                  cx={grid_W / 2}
+                  cy={grid_H / 2}
+                  r={ringR}
+                  stroke="#5cbdb9"
+                  strokeOpacity={0.22 - ringIdx * 0.04}
+                  strokeWidth={0.045}
+                  fill="none"
+                />
+              ))}
+
               <Anim_G translateX={world_OffX} translateY={world_OffY}>
                 <Path
                   d={gridPathD}
-                  stroke="rgba(92, 189, 185, 0.16)"
-                  strokeWidth={0.045}
+                  stroke="#d7ecea"
+                  strokeWidth={0.07}
                 />
 
                 {svgPathStr && (
@@ -447,7 +551,7 @@ export default function MapPage() {
                     <Path
                       d={svgPathStr}
                       stroke="#5cbdb9"
-                      strokeOpacity={0.25}
+                      strokeOpacity={0.4}
                       strokeWidth={1.4}
                       strokeLinecap="round"
                       fill="none"
@@ -466,23 +570,22 @@ export default function MapPage() {
                 )}
               </Anim_G>
 
-              <Circle cx={grid_W / 2} cy={grid_H / 2} r={2.4} fill="url(#radarGlow)" />
               <AnimCircle
                 cx={grid_W / 2}
                 cy={grid_H / 2}
                 r={pulse_Radius}
                 stroke="#5cbdb9"
-                strokeWidth={0.12}
+                strokeWidth={0.08}
                 fill="none"
                 opacity={pulse_Opacity}
               />
               <Circle
                 cx={grid_W / 2}
                 cy={grid_H / 2}
-                r={0.34}
+                r={0.15}
                 fill="#fbe3e8"
                 stroke="#5cbdb9"
-                strokeWidth={0.14}
+                strokeWidth={0.05}
               />
             </Svg>
           </Animated.View>
@@ -535,23 +638,20 @@ export default function MapPage() {
         </View>
       </View>
 
-      <View style={indexStyles.bottomFrame}>
-        <View style={indexStyles.distanceFrame}>
-          <Text style={indexStyles.distanceTitle}>50 m</Text>
-          <Text style={indexStyles.distanceSubTitle}>turn left</Text>
-        </View>
-      </View>
-
       <NavigationBar />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  safeAreaRoot: {
+    flex: 1,
+    backgroundColor: rootBleedBg,
+  },
   miniMapContainer: {
     width: miniMap_sz,
     height: miniMap_sz,
-    backgroundColor: '#ffffff',
+    backgroundColor: radarBaseBg,
     borderRadius: miniMap_sz / 2,
     overflow: 'hidden',
     position: 'relative',
@@ -587,7 +687,6 @@ const localStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-
   joystickHidden: {
     opacity: 0,
   },
